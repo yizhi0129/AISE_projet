@@ -35,6 +35,16 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
+    struct sockaddr_in client_address;
+    socklen_t client_address_len = sizeof(client_address);
+
+    int client_socket = accept(server_socket, (struct sockaddr*)&client_address, &client_address_len);
+    if (client_socket == -1) 
+    {
+        perror("Accept failed");
+        exit(EXIT_FAILURE);
+    }
+    
     char buffer[1024];
     memset(buffer, 0, sizeof(buffer));
     ssize_t bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
