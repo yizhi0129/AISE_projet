@@ -1,0 +1,65 @@
+(base) yangyizhideair:projet yangyizhi$ gcc client.c -o client
+(base) yangyizhideair:projet yangyizhi$ ./client
+Connected to server.
+Enter command: SET q hello world!
+Server response: +OK
+ hello world!
+
+Enter command: DET q
+Server response: -ERROR Unknown Command
+
+Enter command: GET q
+Server response: $hello
+nknown Command
+
+Enter command: DEL q
+Server response: +OK
+
+
+Enter command: SET key HELLO-WORLD
+Server response: +OK
+ey HELLO-WORLD
+
+Enter command: GET key
+Server response: $HELLO-WORLD
+WORLD
+
+Enter command: 
+Server response: -ERROR Unknown Command
+
+Enter command: DEL key
+Server response: +OK
+ey
+
+Enter command: SET key key key haha
+Server response: +OK
+ey key key haha
+
+Enter command: GET key
+Server response: $key
+y
+
+Enter command: DEL key
+Server response: +OK
+ey
+
+Enter command: SET mykey 0110
+Server response: +OK
+ykey 0110
+
+Enter command: GET mykey
+Server response: $0110
+ey
+
+Enter command: SET s 1111111
+Server response: +OK
+ 1111111
+
+Enter command: GET s
+Server response: $1111111
+111
+
+Enter command: exit
+Server response: -ERROR Unknown Command
+
+Enter command: ^C
