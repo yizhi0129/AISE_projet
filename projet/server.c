@@ -13,6 +13,8 @@
 //#define MAX_KEY_SIZE 256
 #define HASH_TABLE_SIZE 1024
 
+pthread_mutex_t lock;
+
 typedef struct node {
     char* key;
     void* value;
@@ -142,6 +144,8 @@ void processCommand(int clientSocket, char* command)
     size_t key_size;
     if (strncmp(command, "SET", 3) == 0) 
     {
+        pthread_mutex_lock(&lock);
+
         char key[BUFFER_SIZE];
         sscanf(command, "SET %s", key);
         key_size = strlen(key);
@@ -151,7 +155,12 @@ void processCommand(int clientSocket, char* command)
             // Convert hexadecimal string to binary data
             value_size = (strlen(value_str) - 2) / 2;
             void* value_bin = malloc(value_size);
-            sscanf(value_str + 2, "%*2x%*2x%*2x%*2x%*2x%*2x%*2x%*2x", value_bin);
+            for (size_t i = 0; i < value_size; i ++) 
+            {
+                unsigned int temp;
+                sscanf(value_str + 2 + i * 2, "%2x", &temp);
+                ((unsigned char*)value_bin)[i] = temp;
+            }
             setKeyValue(key, key_size, value_bin, value_size);
             free(value_bin);
         } 
@@ -162,12 +171,14 @@ void processCommand(int clientSocket, char* command)
             setKeyValue(key, key_size, value_str, value_size);
         }
         snprintf(response, BUFFER_SIZE, "+OK\r\n");
+        pthread_mutex_unlock(&lock);
     }
     else if (strncmp(command, "GET", 3) == 0) 
     {
         char key[BUFFER_SIZE];
         sscanf(command, "GET %s", key);
         key_size = strlen(key);
+        pthread_mutex_lock(&lock);
         void* value = getKeyValue(key, key_size, &value_size);
 
         if (value) 
@@ -202,14 +213,17 @@ void processCommand(int clientSocket, char* command)
         {
             snprintf(response, BUFFER_SIZE, "$-1\r\n");
         }
+        pthread_mutex_unlock(&lock);
     }
     else if (strncmp(command, "DEL", 3) == 0) 
     {
+        pthread_mutex_lock(&lock);
         char key[BUFFER_SIZE];
         sscanf(command, "DEL %s", key);
         size_t key_size = strlen(key);
         delKey(key, key_size);
         snprintf(response, BUFFER_SIZE, "+OK\r\n");
+        pthread_mutex_unlock(&lock);
     }
     else 
     {
@@ -222,6 +236,8 @@ void* handleClient(void* arg)
 {
     int clientSocket = *(int*)arg;
     char buffer[BUFFER_SIZE];
+    char response[BUFFER_SIZE];
+    //int bytesReceived;
 
     while (1) 
     {
@@ -241,8 +257,9 @@ void* handleClient(void* arg)
         }
 
         // Process the command and send the response
-        char response[BUFFER_SIZE];
-        processCommand(buffer, response);
+        
+        processCommand(clientSocket, buffer);
+        
         ssize_t sentBytes = send(clientSocket, response, strlen(response), 0);
         if (sentBytes < 0) 
         {
@@ -255,6 +272,7 @@ void* handleClient(void* arg)
 
 int main() 
 {
+    pthread_mutex_init(&lock, NULL);
     int serverSocket, *clientSocket;
     struct sockaddr_in serverAddr, clientAddr;
     socklen_t clientAddrLen = sizeof(clientAddr);
@@ -302,5 +320,6 @@ int main()
 
     
     close(serverSocket);
+    pthread_mutex_destroy(&lock);
     return 0;
 }

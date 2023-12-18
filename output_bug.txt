@@ -1,3 +1,5 @@
+#### basic form
+
 (base) yangyizhideair:projet yangyizhi$ gcc client.c -o client
 (base) yangyizhideair:projet yangyizhi$ ./client
 Connected to server.
@@ -63,3 +65,25 @@ Enter command: exit
 Server response: -ERROR Unknown Command
 
 Enter command: ^C
+
+----------------------------------
+
+
+#### with mutex and binary
+
+(base) yangyizhideMacBook-Air:projet yangyizhi$ ./client
+Connected to server.
+Enter command: SET mykey key
+Server response: +OK
+ykey key
+
+Enter command: GET mykey
+Server response: $6d796b6579206b65790a
+
+Enter command: DEL mykey
+Server response: +OK
+ykey
+
+Enter command: ^C
+
+--------------------------
