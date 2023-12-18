@@ -79,11 +79,62 @@ ykey key
 
 Enter command: GET mykey
 Server response: $6d796b6579206b65790a
+## 转换为字符串："mykey key\n"
+## 而不是“key\n“
 
 Enter command: DEL mykey
 Server response: +OK
 ykey
 
 Enter command: ^C
+
+--------------------------
+
+
+(base) yangyizhideMacBook-Air:projet yangyizhi$ ./client
+Connected to server.
+Enter command: SET key value
+Server response: +OK
+ey value
+
+Enter command: GET key
+Server response: $-1
+ey
+
+
+Enter command: GET k
+Server response: $-1
+
+
+Enter command: GET key value
+Server response: $-1
+ey value
+
+Enter command: GET k
+Server response: $-1
+
+
+Enter command: GET ke
+Server response: $-1
+e
+
+Enter command: GET i
+Server response: $-1
+
+
+Enter command: GET value
+Server response: $-1
+alue
+
+Enter command: DEL key
+Server response: +OK
+ey
+
+Enter command: DEL key value
+Server response: +OK
+ey value
+
+Enter command: DEL k
+Server response: +OK
 
 --------------------------

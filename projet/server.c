@@ -95,7 +95,21 @@ void setKeyValue(const char* key, size_t key_size, const void* value, size_t val
     hashTable[index] = node;
 }
 
-void* getKeyValue(const char* key, size_t key_size, size_t* value_size) {
+void* getKeyValue(const char* key_value, size_t key_size, size_t* value_size) {
+    // Find the position of the space character
+    const char* space_pos = strchr(key_value, ' ');
+    if (space_pos == NULL) 
+    {
+        return NULL;  // No space found, invalid format
+    }
+
+    key_size = space_pos - key_value;
+
+    // Create a key buffer and copy the key
+    char key[BUFFER_SIZE];
+    strncpy(key, key_value, key_size);
+    key[key_size] = '\0';
+
     unsigned int index = hash(key, key_size);
     node_t* node = hashTable[index];
 
@@ -147,18 +161,20 @@ void processCommand(int clientSocket, char* command)
         pthread_mutex_lock(&lock);
 
         char key[BUFFER_SIZE];
-        sscanf(command, "SET %s", key);
+        char value[BUFFER_SIZE];
+        sscanf(command, "SET %s %s", key, value);
         key_size = strlen(key);
-        char* value_str = strchr(command, ' ') + 1;
-        if (strncmp(value_str, "0x", 2) == 0) 
+        value_size = strlen(value);
+
+        if (strncmp(value, "0x", 2) == 0) 
         {
             // Convert hexadecimal string to binary data
-            value_size = (strlen(value_str) - 2) / 2;
+            value_size = (strlen(value) - 2) / 2;
             void* value_bin = malloc(value_size);
             for (size_t i = 0; i < value_size; i ++) 
             {
                 unsigned int temp;
-                sscanf(value_str + 2 + i * 2, "%2x", &temp);
+                sscanf(value + 2 + i * 2, "%2x", &temp);
                 ((unsigned char*)value_bin)[i] = temp;
             }
             setKeyValue(key, key_size, value_bin, value_size);
@@ -167,8 +183,8 @@ void processCommand(int clientSocket, char* command)
         else 
         {
             // Set the value as a string
-            value_size = strlen(value_str);
-            setKeyValue(key, key_size, value_str, value_size);
+            
+            setKeyValue(key, key_size, value, value_size);
         }
         snprintf(response, BUFFER_SIZE, "+OK\r\n");
         pthread_mutex_unlock(&lock);
@@ -206,7 +222,9 @@ void processCommand(int clientSocket, char* command)
             }
             else 
             {
-                snprintf(response, BUFFER_SIZE, "$%s\r\n", (char*)value);
+                // Print string
+                snprintf(response, BUFFER_SIZE, "$%.*s\r\n", (int)value_size, (char*)value);
+
             }
         }
         else 
