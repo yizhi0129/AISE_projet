@@ -138,3 +138,27 @@ Enter command: DEL k
 Server response: +OK
 
 --------------------------
+
+(base) yangyizhideMacBook-Air:projet yangyizhi$ ./client
+Connected to server.
+Enter command: SET key value
+Server response: +OK
+ey value
+Enter command: GET key
+Server response: $-1
+ey
+Enter command: GET k
+Server response: $-1
+
+Enter command: GET key value
+Server response: $-1
+ey value
+Enter command: GET key
+Server response: $-1
+ey
+Enter command: GET k
+Server response: $-1
+
+Enter command: GET 
+Server response: $-1
+## space

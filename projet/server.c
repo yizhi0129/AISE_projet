@@ -153,6 +153,7 @@ void delKey(const char* key, size_t key_size) {
 
 void processCommand(int clientSocket, char* command) 
 {
+    command[strcspn(command, "\n")] = 0; // Remove trailing newline
     char response[BUFFER_SIZE];
     size_t value_size;
     size_t key_size;

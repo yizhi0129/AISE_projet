@@ -36,6 +36,7 @@ int main() {
     while (1) {
         printf("Enter command: ");
         fgets(buffer, BUFFER_SIZE, stdin);
+        buffer[strcspn(buffer, "\n")] = 0; // Remove trailing newline
         bytesSent = send(sock, buffer, strlen(buffer), 0);
         if (bytesSent < 0) {
             perror("Failed to send command");
