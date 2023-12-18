@@ -33,6 +33,7 @@ unsigned int hash(const char* key, size_t key_size) {
     return value % HASH_TABLE_SIZE;
 }
 
+/*
 unsigned int hashBinary(const char* key, size_t len) {
     unsigned long int value = 0;
     for (size_t i = 0; i < len; ++i) {
@@ -40,6 +41,7 @@ unsigned int hashBinary(const char* key, size_t len) {
     }
     return value % HASH_TABLE_SIZE;
 }
+*/
 
 void setKeyValue(const char* key, size_t key_size, const void* value, size_t value_size) {
     unsigned int index = hash(key, key_size);
