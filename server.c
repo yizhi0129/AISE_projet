@@ -12,24 +12,27 @@
 #define HASH_TABLE_SIZE 1024
 
 pthread_mutex_t lock;
-pthread_rwlock_t rwlock;
+pthread_rwlock_t rwlock; 
+// Add locks to realize the atomicity of the operations
 
+
+// Define a structure to represent a key-value pair node
 typedef struct node {
     char* key;
     void* value;
     size_t key_size;
     size_t value_size;
-    struct node* next;
+    struct node* next; // Pointer to the next node in the linked list (for handling collisions)
 } node_t;
 
-node_t* hashTable[HASH_TABLE_SIZE];
+node_t* hashTable[HASH_TABLE_SIZE]; // Define an array of pointers to nodes as the hash table
 
 unsigned int hash(const char* key, size_t key_size) {
     unsigned long int value = 0;
     for (size_t i = 0; i < key_size; ++i) {
         value = value * 37 + key[i];
     }
-    return value % HASH_TABLE_SIZE;
+    return value % HASH_TABLE_SIZE; // Ensure the index is within the size of the hash table
 }
 
 int parseKeyValue(const char* command, char* key, size_t* key_size, char* value, size_t* value_size) {
@@ -136,6 +139,7 @@ void* getKeyValue(const char* key, size_t* value_size) {
     return NULL;
 }
 
+
 int delKey(const char* key, size_t key_size) {
     unsigned int index = hash(key, key_size);
     node_t* prev = NULL;
@@ -162,7 +166,7 @@ int delKey(const char* key, size_t key_size) {
     free(node->value);
     free(node);
     
-     // Remove the key from the file
+    // Remove the key from the file
     FILE *file = fopen("datafile.bin", "rb+");
     if (file == NULL) 
     {
@@ -293,6 +297,7 @@ void processCommand(int clientSocket, char* command) {
     char response[BUFFER_SIZE];
     size_t value_size;
 
+    // Check the command type
     if (strncmp(command, "SET", 3) == 0) {
     pthread_mutex_lock(&lock);
 
@@ -300,6 +305,7 @@ void processCommand(int clientSocket, char* command) {
     char value[BUFFER_SIZE];
     size_t key_size, value_size;
 
+    // Parse the key-value pair from the command
     if (parseKeyValue(command, key, &key_size, value, &value_size) != 0) {
         snprintf(response, BUFFER_SIZE, "-ERROR Invalid SET command format\r\n");
     } else {
@@ -311,10 +317,15 @@ void processCommand(int clientSocket, char* command) {
     }
     else if (strncmp(command, "GET", 3) == 0) {
     char key[BUFFER_SIZE];
+
+    // Check if the command contains a key
     if (sscanf(command + 3, " %s", key) == 1) {
         pthread_mutex_lock(&lock);
+
+        // Retrieve the value for the given key
         void* value = getKeyValue(key, &value_size);
 
+        // Format the response
         if (value) {
             snprintf(response, BUFFER_SIZE, "$%.*s\r\n", (int)value_size, (char*)value);
         }
@@ -331,9 +342,15 @@ void processCommand(int clientSocket, char* command) {
     else if (strncmp(command, "DEL", 3) == 0) {
         pthread_mutex_lock(&lock);
         char key[BUFFER_SIZE];
+
+        // Check if the command contains a key
         if (sscanf(command, "DEL %s", key) == 1) {
             size_t key_size = strlen(key);
+
+            // Delete the key-value pair
             int result = delKey(key, key_size);
+
+            // Format the response
             if (result == 1) {
                 snprintf(response, BUFFER_SIZE, "+OK\r\n");
             }
@@ -353,16 +370,22 @@ void processCommand(int clientSocket, char* command) {
     else if (strncmp(command, "QUIT", 4) == 0) {
         // QUIT command
         snprintf(response, BUFFER_SIZE, "+OK\r\n");
+
+        // Close the client socket and exit the thread
         close(clientSocket);
         pthread_exit(NULL);
     }
     else if (strncmp(command, "RENAME", 6) == 0) {
     char old_key[BUFFER_SIZE];
     char new_key[BUFFER_SIZE];
+
+    // Check if the command contains old and new keys
     if (sscanf(command, "RENAME %s %s", old_key, new_key) == 2) {
         pthread_mutex_lock(&lock);
         size_t old_key_size = strlen(old_key);
         size_t new_key_size = strlen(new_key);
+        
+        // Rename the key
         renameKey(old_key, old_key_size, new_key, new_key_size);
         snprintf(response, BUFFER_SIZE, "+OK\r\n");
         pthread_mutex_unlock(&lock);
@@ -374,9 +397,13 @@ void processCommand(int clientSocket, char* command) {
     else if (strncmp(command, "EXISTS", 6) == 0) 
     {
         char key[BUFFER_SIZE];
+
+        // Check if the command contains a key
         if (sscanf(command + 6, " %s", key) == 1) 
         {
             pthread_mutex_lock(&lock);
+
+            // Check if the key exists
             int exists = keyExists(key);
             snprintf(response, BUFFER_SIZE, ":%d\r\n", exists);  // Return 1 if key exists, 0 otherwise
             pthread_mutex_unlock(&lock);
@@ -387,28 +414,35 @@ void processCommand(int clientSocket, char* command) {
         }
     }
     else {
-        snprintf(response, BUFFER_SIZE, "-ERROR Unknown Command\r\n");
+        snprintf(response, BUFFER_SIZE, "-ERROR Unknown Command\r\n"); // Unknown command
     }
+
+    // Send the response to the client
     if (send(clientSocket, response, strlen(response), 0) < 0) {
         perror("Failed to send response");
     }
 }
 
 void* handleClient(void* arg) {
+    // Extract the client socket from the argument
     int clientSocket = *(int*)arg;
     char buffer[BUFFER_SIZE];
 
     while (1) {
+        // Reset the buffer to receive new data
         memset(buffer, 0, BUFFER_SIZE);
+
+        // Receive data from the client
         ssize_t numBytes = recv(clientSocket, buffer, BUFFER_SIZE - 1, 0);
 
+        // Check if the client disconnected
         if (numBytes <= 0) {
             if (numBytes == 0) {
                 printf("Client disconnected\n");
                 if (remove("datafile.bin") == 0) 
                 {
                     printf("File deleted successfully.\n");
-                }  
+                }  // remove the file if the client disconnects but did not delete the keys
                 else 
                 {
                     perror("Error deleting file");
@@ -416,10 +450,11 @@ void* handleClient(void* arg) {
             } else {
                 perror("recv");
             }
+            // Close the client socket and exit the thread
             close(clientSocket);
             return NULL;
         }
-
+        // Process the received command
         processCommand(clientSocket, buffer);
     }
 }
