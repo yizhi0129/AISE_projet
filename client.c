@@ -37,17 +37,26 @@ int main() {
         printf("Enter command: ");
         fgets(buffer, BUFFER_SIZE, stdin);
         buffer[strcspn(buffer, "\n")] = 0; // Remove trailing newline
+
+        // Check if the command is QUIT
+        if (strcmp(buffer, "QUIT") == 0) {
+            printf("Disconnecting from server.\n");
+            close(sock);
+            exit(EXIT_SUCCESS);
+        }
+
         bytesSent = send(sock, buffer, strlen(buffer), 0);
         if (bytesSent < 0) {
             perror("Failed to send command");
             break;
         }
 
-        bytesReceived = recv(sock, buffer, BUFFER_SIZE, 0);
+        bytesReceived = recv(sock, buffer, BUFFER_SIZE - 1, 0);
         if (bytesReceived < 0) {
             perror("Failed to receive response");
             break;
         }
+        buffer[bytesReceived] = '\0';
 
         printf("Server response: %s\n", buffer);
     }

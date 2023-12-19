@@ -12,6 +12,7 @@
 #define HASH_TABLE_SIZE 1024
 
 pthread_mutex_t lock;
+pthread_rwlock_t rwlock;
 
 typedef struct node {
     char* key;
@@ -32,6 +33,7 @@ unsigned int hash(const char* key, size_t key_size) {
 }
 
 void setKeyValue(const char* key, size_t key_size, const void* value, size_t value_size) {
+    pthread_rwlock_wrlock(&rwlock);
     unsigned int index = hash(key, key_size);
     node_t* node = hashTable[index];
 
@@ -77,19 +79,12 @@ void setKeyValue(const char* key, size_t key_size, const void* value, size_t val
     node->value_size = value_size;
     node->next = hashTable[index];
     hashTable[index] = node;
+    pthread_rwlock_unlock(&rwlock);
 }
 
-void* getKeyValue(const char* key_value, size_t* value_size) {
-    const char* space_pos = strchr(key_value, ' ');
-    if (space_pos == NULL) {
-        return NULL;  // No space found, invalid format
-    }
-
-    size_t key_size = space_pos - key_value;
-
-    char key[BUFFER_SIZE];
-    strncpy(key, key_value, key_size);
-    key[key_size] = '\0';
+void* getKeyValue(const char* key, size_t* value_size) {
+    pthread_rwlock_rdlock(&rwlock);
+    size_t key_size = strlen(key);
 
     unsigned int index = hash(key, key_size);
     node_t* node = hashTable[index];
@@ -101,10 +96,11 @@ void* getKeyValue(const char* key_value, size_t* value_size) {
         }
         node = node->next;
     }
+    pthread_rwlock_unlock(&rwlock);
     return NULL;
 }
 
-void delKey(const char* key, size_t key_size) {
+int delKey(const char* key, size_t key_size) {
     unsigned int index = hash(key, key_size);
     node_t* prev = NULL;
     node_t* node = hashTable[index];
@@ -115,7 +111,7 @@ void delKey(const char* key, size_t key_size) {
     }
 
     if (node == NULL) {
-        return;
+        return 0;
     }
 
     if (prev == NULL) {
@@ -128,6 +124,7 @@ void delKey(const char* key, size_t key_size) {
     free(node->key);
     free(node->value);
     free(node);
+    return 1;
 }
 
 void processCommand(int clientSocket, char* command) {
@@ -140,44 +137,71 @@ void processCommand(int clientSocket, char* command) {
 
         char key[BUFFER_SIZE];
         char value[BUFFER_SIZE];
-        sscanf(command, "SET %s %s", key, value);
-        size_t key_size = strlen(key);
-        size_t value_size = strlen(value);
 
-        setKeyValue(key, key_size, value, value_size);
+        if (sscanf(command, "SET %s %s", key, value) != 2) {
+            snprintf(response, BUFFER_SIZE, "-ERROR Invalid SET command format\r\n");
+        } else {
+            size_t key_size = strlen(key);
+            size_t value_size = strlen(value);
+            setKeyValue(key, key_size, value, value_size);
+            snprintf(response, BUFFER_SIZE, "+OK\r\n");
+        }
 
-        snprintf(response, BUFFER_SIZE, "+OK\r\n");
         pthread_mutex_unlock(&lock);
     }
     else if (strncmp(command, "GET", 3) == 0) {
     char key[BUFFER_SIZE];
-    sscanf(command + 4, "%s", key); 
-    size_t key_size = strlen(key);
-    pthread_mutex_lock(&lock);
-    void* value = getKeyValue(key, &value_size);
+    if (sscanf(command + 3, " %s", key) == 1) {
+        pthread_mutex_lock(&lock);
+        void* value = getKeyValue(key, &value_size);
 
-    if (value) {
-        snprintf(response, BUFFER_SIZE, "$%.*s\r\n", (int)value_size, (char*)value);
+        if (value) {
+            snprintf(response, BUFFER_SIZE, "$%.*s\r\n", (int)value_size, (char*)value);
+        }
+        else {
+            snprintf(response, BUFFER_SIZE, "$-1\r\n");
+        }
+        pthread_mutex_unlock(&lock);
     }
     else {
-        snprintf(response, BUFFER_SIZE, "$-1\r\n");
+        snprintf(response, BUFFER_SIZE, "-ERROR Invalid GET command format\r\n");
     }
-    pthread_mutex_unlock(&lock);
-    }
+}
 
     else if (strncmp(command, "DEL", 3) == 0) {
         pthread_mutex_lock(&lock);
         char key[BUFFER_SIZE];
-        sscanf(command, "DEL %s", key);
-        size_t key_size = strlen(key);
-        delKey(key, key_size);
-        snprintf(response, BUFFER_SIZE, "+OK\r\n");
+        if (sscanf(command, "DEL %s", key) == 1) {
+            size_t key_size = strlen(key);
+            int result = delKey(key, key_size);
+            if (result == 1) {
+                snprintf(response, BUFFER_SIZE, "+OK\r\n");
+            }
+            else {
+                snprintf(response, BUFFER_SIZE, "-ERROR Key not found or already deleted\r\n");
+            }
+        }
+        else {
+            snprintf(response, BUFFER_SIZE, "-ERROR Invalid DEL command format\r\n");
+        }
         pthread_mutex_unlock(&lock);
+    }
+    else if (strncmp(command, "PING", 4) == 0) {
+        // PING command
+        snprintf(response, BUFFER_SIZE, "+PONG\r\n");
+    }
+    else if (strncmp(command, "QUIT", 4) == 0) {
+        // QUIT command
+        snprintf(response, BUFFER_SIZE, "+OK\r\n");
+        close(clientSocket);
+        pthread_exit(NULL);
     }
     else {
         snprintf(response, BUFFER_SIZE, "-ERROR Unknown Command\r\n");
     }
-    send(clientSocket, response, strlen(response), 0);
+    if (send(clientSocket, response, strlen(response), 0) < 0) {
+        perror("Failed to send response");
+    }
 }
 
 void* handleClient(void* arg) {
