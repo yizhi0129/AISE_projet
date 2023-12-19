@@ -152,7 +152,7 @@ void processCommand(int clientSocket, char* command) {
     else if (strncmp(command, "GET", 3) == 0) {
     char key[BUFFER_SIZE];
     sscanf(command + 4, "%s", key); 
-    key_size = strlen(key);
+    size_t key_size = strlen(key);
     pthread_mutex_lock(&lock);
     void* value = getKeyValue(key, &value_size);
 
