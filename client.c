@@ -1,4 +1,3 @@
-// client.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,16 +14,19 @@ int main() {
     char buffer[BUFFER_SIZE];
     int bytesSent, bytesReceived;
 
+    // Create a socket
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         perror("Socket creation failed");
         exit(EXIT_FAILURE);
     }
 
+    // Configure server address
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(SERVER_PORT);
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
+    // Connect to the server
     if (connect(sock, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
         perror("Connection failed");
         close(sock);
@@ -34,6 +36,7 @@ int main() {
     printf("Connected to server.\n");
 
     while (1) {
+        // Get user input
         printf("Enter command: ");
         fgets(buffer, BUFFER_SIZE, stdin);
         buffer[strcspn(buffer, "\n")] = 0; // Remove trailing newline
@@ -45,12 +48,14 @@ int main() {
             exit(EXIT_SUCCESS);
         }
 
+        // Send command to server
         bytesSent = send(sock, buffer, strlen(buffer), 0);
         if (bytesSent < 0) {
             perror("Failed to send command");
             break;
         }
 
+        // Receive response from server
         bytesReceived = recv(sock, buffer, BUFFER_SIZE - 1, 0);
         if (bytesReceived < 0) {
             perror("Failed to receive response");
@@ -61,6 +66,7 @@ int main() {
         printf("Server response: %s\n", buffer);
     }
 
+    // Close the socket
     close(sock);
     return 0;
 }

@@ -57,15 +57,18 @@ int parseKeyValue(const char* command, char* key, size_t* key_size, char* value,
     return 0;
 }
 
+// Function to set a key-value pair in the hash table and persist it to a file
 void setKeyValue(const char* key, size_t key_size, const void* value, size_t value_size) {
     pthread_rwlock_wrlock(&rwlock);
     unsigned int index = hash(key, key_size);
     node_t* node = hashTable[index];
 
+    // Traverse the linked list at the hash index to find the node with the matching key
     while (node != NULL && (node->key_size != key_size || strncmp(node->key, key, key_size) != 0)) {
         node = node->next;
     }
 
+    // If the key exists, update the value
     if (node != NULL) {
         free(node->value);
         node->value = malloc(value_size);
@@ -78,6 +81,7 @@ void setKeyValue(const char* key, size_t key_size, const void* value, size_t val
         return;
     }
 
+    // If the key doesn't exist, create a new node and add it to the hash table
     node = malloc(sizeof(node_t));
     if (node == NULL) {
         perror("Failed to allocate memory for node");
@@ -121,6 +125,7 @@ void setKeyValue(const char* key, size_t key_size, const void* value, size_t val
     fclose(file);
 }
 
+// Function to get the value for a given key from the hash table
 void* getKeyValue(const char* key, size_t* value_size) {
     pthread_rwlock_rdlock(&rwlock);
     size_t key_size = strlen(key);
@@ -128,6 +133,7 @@ void* getKeyValue(const char* key, size_t* value_size) {
     unsigned int index = hash(key, key_size);
     node_t* node = hashTable[index];
 
+    // Traverse the linked list at the hash index to find the node with the matching key
     while (node != NULL) {
         if (node->key_size == key_size && strncmp(node->key, key, key_size) == 0) {
             *value_size = node->value_size;
@@ -139,22 +145,25 @@ void* getKeyValue(const char* key, size_t* value_size) {
     return NULL;
 }
 
-
+// Function to delete a key from the hash table and remove it from the persisted file
 int delKey(const char* key, size_t key_size) {
     unsigned int index = hash(key, key_size);
     node_t* prev = NULL;
     node_t* node = hashTable[index];
 
+    // Traverse the linked list at the hash index to find the node with the matching key
     while (node != NULL && (node->key_size != key_size || strncmp(node->key, key, key_size) != 0)) {
         prev = node;
         node = node->next;
     }
 
+    // If the key is not found, unlock the read-write lock and return 0
     if (node == NULL) {
         pthread_rwlock_unlock(&rwlock);
         return 0;
     }
 
+    // If the key is found, update the linked list and free the node's memory
     if (prev == NULL) {
         hashTable[index] = node->next;
     }
@@ -460,27 +469,33 @@ void* handleClient(void* arg) {
 }
 
 int main() {
+    // Initialize a mutex for thread synchronization
     pthread_mutex_init(&lock, NULL);
+    
     int serverSocket, *clientSocket;
     struct sockaddr_in serverAddr, clientAddr;
     socklen_t clientAddrLen = sizeof(clientAddr);
     pthread_t thread;
 
+    // Create a socket
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == -1) {
         perror("Failed to create socket");
         exit(EXIT_FAILURE);
     }
 
+    // Set up the server address struct
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(PORT);
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
+    // Bind the socket to the specified address and port
     if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
         perror("Failed to bind to port");
         exit(EXIT_FAILURE);
     }
 
+    // Start listening for incoming connections
     if (listen(serverSocket, 5) < 0) {
         perror("Failed to listen on socket");
         exit(EXIT_FAILURE);
@@ -488,13 +503,16 @@ int main() {
 
     printf("Server is listening on port %d...\n", PORT);
 
+    // Main server loop
     while (1) {
+        // Allocate memory for the client socket
         clientSocket = malloc(sizeof(int));
         if (clientSocket == NULL) {
             perror("Failed to allocate memory for client socket");
             continue;
         }
 
+        // Accept incoming client connection
         *clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &clientAddrLen);
         if (*clientSocket < 0) {
             perror("Failed to accept client connection");
@@ -502,10 +520,12 @@ int main() {
             continue;
         }
 
+        // Create a new thread to handle the client
         pthread_create(&thread, NULL, handleClient, (void*)clientSocket);
         pthread_detach(thread);
     }
 
+    // Close the server socket and destroy the mutex
     close(serverSocket);
     pthread_mutex_destroy(&lock);
     return 0;
