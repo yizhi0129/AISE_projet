@@ -278,3 +278,29 @@ Server response: +OK
 
 Enter command: DEL k
 Server response: +OK
+
+
+----------------------------------
+## execution on Ubuntu
+
+qy@qy-MacBookPro:~/AISE_projet$ make server
+gcc -Wall -pthread server.c -o server
+server.c: In function ‘processCommand’:
+server.c:155:12: warning: unused variable ‘key_size’ [-Wunused-variable]
+  155 |     size_t key_size = strlen(key);
+      |            ^~~~~~~~
+
+qy@qy-MacBookPro:~/AISE_projet$ ./client
+Connected to server.
+Enter command: SET key value
+Server response: +OK
+ey value
+Enter command: GET key
+Server response: $-1
+ey
+Enter command: DEL key
+Server response: +OK
+ey
+Enter command: ^C
+
+### not a problem of system
